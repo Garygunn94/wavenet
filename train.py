@@ -24,7 +24,7 @@ INPUT_DIRECTORY = './train/input'
 OUTPUT_DIRECTORY = './train/output'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 50
-NUM_STEPS = int(1e5)
+NUM_STEPS = int(15)
 LEARNING_RATE = 1e-3
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
@@ -319,11 +319,13 @@ def main():
 
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
     reader.start_threads(sess)
+    reader_out.start_threads(sess)
     print("Beginning")
     step = None
     try:
         print('here')
         last_saved_step = saved_global_step
+        print(saved_global_step)
         for step in range(saved_global_step + 1, args.num_steps):
             print('in here')
             start_time = time.time()

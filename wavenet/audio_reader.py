@@ -40,13 +40,25 @@ def find_files(directory, pattern='*.wav'):
             files.append(os.path.join(root, filename))
     return files
 
+def atoi(text):
+    return int(text) if text.isdigit() else text
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    '''
+    return [ atoi(c) for c in re.split('(\d+)', text) ]
 
 def load_generic_audio(directory, sample_rate):
     '''Generator that yields audio waveforms from the directory.'''
     files = find_files(directory)
+    files.sort(key=natural_keys)
     id_reg_exp = re.compile(FILE_PATTERN)
     print("files length: {}".format(len(files)))
-    randomized_files = randomize_files(files)
+    #randomized_files = randomize_files(files)
+    randomized_files = files
     for filename in randomized_files:
         ids = id_reg_exp.findall(filename)
         if not ids:
@@ -151,43 +163,44 @@ class AudioReader(object):
     def thread_main(self, sess):
         stop = False
         # Go through the dataset multiple times
-        while not stop:
-            iterator = load_generic_audio(self.audio_dir, self.sample_rate)
-            for audio, filename, category_id in iterator:
-                if self.coord.should_stop():
-                    stop = True
-                    break
-                if self.silence_threshold is not None:
-                    # Remove silence
-                    audio = trim_silence(audio[:, 0], self.silence_threshold)
-                    audio = audio.reshape(-1, 1)
-                    if audio.size == 0:
-                        print("Warning: {} was ignored as it contains only "
-                              "silence. Consider decreasing trim_silence "
-                              "threshold, or adjust volume of the audio."
-                              .format(filename))
+        #while not stop:
+        iterator = load_generic_audio(self.audio_dir, self.sample_rate)
+        for audio, filename, category_id in iterator:
+            print (filename)
+            if self.coord.should_stop():
+                stop = True
+                break
+            if self.silence_threshold is not None:
+                # Remove silence
+                #audio = trim_silence(audio[:, 0], self.silence_threshold)
+                #audio = audio.reshape(-1, 1)
+                if audio.size == 0:
+                    print("Warning: {} was ignored as it contains only "
+                          "silence. Consider decreasing trim_silence "
+                          "threshold, or adjust volume of the audio."
+                          .format(filename))
 
-                audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]],
-                               'constant')
+            audio = np.pad(audio, [[self.receptive_field, 0], [0, 0]],
+                          'constant')
 
-                if self.sample_size:
-                    # Cut samples into pieces of size receptive_field +
-                    # sample_size with receptive_field overlap
-                    while len(audio) > self.receptive_field:
-                        piece = audio[:(self.receptive_field +
-                                        self.sample_size), :]
-                        sess.run(self.enqueue,
-                                 feed_dict={self.sample_placeholder: piece})
-                        audio = audio[self.sample_size:, :]
-                        if self.gc_enabled:
-                            sess.run(self.gc_enqueue, feed_dict={
-                                self.id_placeholder: category_id})
-                else:
+            if self.sample_size:
+                # Cut samples into pieces of size receptive_field +
+                # sample_size with receptive_field overlap
+                while len(audio) > self.receptive_field:
+                    piece = audio[:(self.receptive_field +
+                                    self.sample_size), :]
                     sess.run(self.enqueue,
-                             feed_dict={self.sample_placeholder: audio})
+                             feed_dict={self.sample_placeholder: piece})
+                    audio = audio[self.sample_size:, :]
                     if self.gc_enabled:
-                        sess.run(self.gc_enqueue,
-                                 feed_dict={self.id_placeholder: category_id})
+                        sess.run(self.gc_enqueue, feed_dict={
+                            self.id_placeholder: category_id})
+            else:
+                sess.run(self.enqueue,
+                         feed_dict={self.sample_placeholder: audio})
+                if self.gc_enabled:
+                    sess.run(self.gc_enqueue,
+                             feed_dict={self.id_placeholder: category_id})
 
     def start_threads(self, sess, n_threads=1):
         for _ in range(n_threads):

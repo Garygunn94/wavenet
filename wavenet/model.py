@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from .ops import causal_conv, mu_law_encode
+from ops import causal_conv, mu_law_encode
 
 
 def create_variable(name, shape):
@@ -405,7 +405,7 @@ class WaveNetModel(object):
 
         current_layer = self._create_causal_layer(current_layer)
 
-        output_width = tf.shape(input_batch)[1] - self.receptive_field + 1
+        output_width = tf.shape(input_batch)[1] -self.receptive_field + 1
 
         # Add all defined dilation layers.
         with tf.name_scope('dilated_stack'):
@@ -623,6 +623,8 @@ class WaveNetModel(object):
 
         The variables are all scoped to the given name.
         '''
+        print(input_batch)
+        print(output_batch)
         with tf.name_scope(name):
             # We mu-law encode and quantize the input audioform.
             encoded_input = mu_law_encode(input_batch,
@@ -633,6 +635,8 @@ class WaveNetModel(object):
             gc_embedding = self._embed_gc(global_condition_batch)
             encoded_in = self._one_hot(encoded_input)
             encoded_out = self._one_hot(encoded_output)
+            print(encoded_in.get_shape())
+            print(encoded_out.get_shape())
             if self.scalar_input:
                 network_input = tf.reshape(
                     tf.cast(input_batch, tf.float32),
@@ -652,6 +656,11 @@ class WaveNetModel(object):
             network_input = tf.slice(network_input, [0, 0, 0],
                                      [-1, network_input_width, -1])
 
+            # Cut off the last sample of network input to preserve causality.
+            #network_output_width = tf.shape(network_output)[1] - 1
+            #network_output = tf.slice(network_output, [0, 0, 0],
+            #                         [-1, network_output_width, -1])
+
             raw_output = self._create_network(network_input, gc_embedding)
 
             with tf.name_scope('loss'):
@@ -667,6 +676,9 @@ class WaveNetModel(object):
                                            [-1, self.quantization_channels])
                 prediction = tf.reshape(raw_output,
                                         [-1, self.quantization_channels])
+
+              
+                print("helooooo")
                 loss = tf.nn.softmax_cross_entropy_with_logits(
                     prediction,
                     target_output)
