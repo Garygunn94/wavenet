@@ -129,7 +129,7 @@ def create_seed(filename,
                         lambda: tf.size(quantized),
                         lambda: tf.constant(window_size))
 
-    return quantized[:cut_index]
+    return quantized
 
 
 def main():
@@ -154,9 +154,9 @@ def main():
         initial_filter_width=wavenet_params['initial_filter_width'],
         global_condition_channels=args.gc_channels,
         global_condition_cardinality=args.gc_cardinality)
-
+    quantization_channels = wavenet_params['quantization_channels']
     samples = tf.placeholder(tf.int32)
-
+   
     if args.fast_generation:
         next_sample = net.predict_proba_incremental(samples, args.gc_id)
     else:
@@ -210,7 +210,7 @@ def main():
         if args.fast_generation:
             outputs = [next_sample]
             outputs.extend(net.push_ops)
-            window = waveform[-1]
+            window = waveform[step]
         else:
             if len(waveform) > net.receptive_field:
                 window = waveform[-net.receptive_field:]
@@ -239,7 +239,7 @@ def main():
 
         sample = np.random.choice(
             np.arange(quantization_channels), p=scaled_prediction)
-        waveform.append(sample)
+        waveform[step] = sample
 
         # Show progress only once per second.
         current_sample_timestamp = datetime.now()

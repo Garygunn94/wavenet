@@ -679,9 +679,10 @@ class WaveNetModel(object):
 
               
                 print("helooooo")
-                loss = tf.nn.softmax_cross_entropy_with_logits(
-                    prediction,
-                    target_output)
+                #loss = tf.nn.softmax_cross_entropy_with_logits(
+                #    prediction,
+                #    target_output)
+                loss = tf.contrib.losses.absolute_difference(prediction, target_output, weight=1.0, scope=None)
                 reduced_loss = tf.reduce_mean(loss)
 
                 tf.scalar_summary('loss', reduced_loss)
