@@ -206,7 +206,7 @@ def main():
         print('Done.')
 
     last_sample_timestamp = datetime.now()
-    for step in range(args.samples):
+    for step in range(len(waveform)):
         if args.fast_generation:
             outputs = [next_sample]
             outputs.extend(net.push_ops)
