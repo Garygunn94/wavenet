@@ -13,23 +13,24 @@ import json
 import os
 import sys
 import time
+import matplotlib.pyplot as plt
 
 import tensorflow as tf
 from tensorflow.python.client import timeline
 
 from wavenet import WaveNetModel, AudioReader, optimizer_factory
 
-BATCH_SIZE = 1
-INPUT_DIRECTORY = './train/input'
-OUTPUT_DIRECTORY = './train/output'
+BATCH_SIZE = 2
+INPUT_DIRECTORY = './silence/input'
+OUTPUT_DIRECTORY = './silence/output'
 LOGDIR_ROOT = './logdir'
 CHECKPOINT_EVERY = 50
 NUM_STEPS = int(20000)
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 0.000125
 WAVENET_PARAMS = './wavenet_params.json'
 STARTED_DATESTRING = "{0:%Y-%m-%dT%H-%M-%S}".format(datetime.now())
-SAMPLE_SIZE = 100000
-L2_REGULARIZATION_STRENGTH = 0
+SAMPLE_SIZE = 8000
+L2_REGULARIZATION_STRENGTH = None
 SILENCE_THRESHOLD = 0.3
 EPSILON = 0.001
 MOMENTUM = 0.9
@@ -278,8 +279,7 @@ def main():
         global_condition_channels=args.gc_channels,
         global_condition_cardinality=reader.gc_category_cardinality)
 
-    if args.l2_regularization_strength == 0:
-        args.l2_regularization_strength = None
+   
     loss = net.loss(input_batch=audio_batch,
                     output_batch=audio_output_batch,
                     global_condition_batch=None,
@@ -326,6 +326,7 @@ def main():
         print('here')
         last_saved_step = saved_global_step
         print(saved_global_step)
+        lossArray = []
         for step in range(saved_global_step + 1, args.num_steps):
             print('in here')
             start_time = time.time()
@@ -348,7 +349,8 @@ def main():
             else:
                 summary, loss_value, _ = sess.run([summaries, loss, optim])
                 writer.add_summary(summary, step)
-
+            
+            lossArray.append(loss_value)
             duration = time.time() - start_time
             print('step {:d} - loss = {:.3f}, ({:.3f} sec/step)'
                   .format(step, loss_value, duration))
@@ -356,6 +358,13 @@ def main():
             if step % args.checkpoint_every == 0:
                 save(saver, sess, logdir, step)
                 last_saved_step = step
+
+        thefile = open('results.txt', 'w')
+        for item in lossArray:
+            thefile.write("%s," % item)
+        
+        
+        
 
     except KeyboardInterrupt:
         # Introduce a line break after ^C is displayed so save message
